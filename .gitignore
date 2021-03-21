@@ -2,6 +2,10 @@
 node_modules
 /dist
 
+config
+config.ts
+config.js
+config.json
 
 # local env files
 .env.local

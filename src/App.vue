@@ -1,18 +1,21 @@
 <template>
-  <div id="nav">
-    <router-link to="/">Home</router-link> |
-    <router-link to="/about">About</router-link>
-  </div>
+  <h1>MXVoice | Proof of Concept</h1>
   <router-view/>
 </template>
 
 <style lang="less">
+
+body {
+  padding: 1rem;
+  margin: 0;
+  background-color: #2c3e50;
+}
+
 #app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Iosevka Slab', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
+  color: white;
 }
 
 #nav {
