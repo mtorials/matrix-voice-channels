@@ -7,7 +7,7 @@
 
 <script lang="ts">
 import { computed, defineComponent, useSSRContext } from 'vue'
-import { Room } from "./matrix/msdk"
+import { Room, MatrixEvent } from "./matrix/msdk"
 import { useStore } from './store'
 import ChannelSelector from './components/ChannelSelector.vue'
 

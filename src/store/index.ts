@@ -5,7 +5,7 @@ import { Room, MatrixClient } from '../matrix/msdk'
 
 export interface State {
   client: MatrixClient,
-  rooms: Map<string, Room>
+  rooms: Room[]
   activeRoomId: string | undefined
 }
 
@@ -14,11 +14,11 @@ export const key: InjectionKey<Store<State>> = Symbol()
 export const store = createStore<State>({
   state: {
     client: new MatrixIndex().createClient(),
-    rooms: new Map(),
+    rooms: [],
     activeRoomId: undefined
   },
   mutations: {
-    setRooms(state: State, rooms: Map<string, Room>) {
+    setRooms(state: State, rooms: Room[]) {
       state.rooms = rooms
     },
     setActiveRoomId(state: State, activeRoomId: string) {
@@ -36,7 +36,7 @@ export const store = createStore<State>({
   getters: {
     getActiveRoom(state) : Room | undefined {
       if (state.activeRoomId === undefined) return undefined
-      return state.rooms.get(state.activeRoomId)
+      return state.rooms.filter((e: Room) => e.roomId == state.activeRoomId)[0]
     }
   },
   modules: {
