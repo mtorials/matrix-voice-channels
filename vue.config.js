@@ -1,5 +1,12 @@
 module.exports = {
   devServer: {
-    proxy: "https://matrix.mtorials.de/"
+    proxy: {
+      '/': {
+        target: 'https://matrix.mtorials.de',
+        //changeOrigin: true,
+        //secure:false,
+        //logLevel: 'debug' 
+      },
+    }
   }
 };

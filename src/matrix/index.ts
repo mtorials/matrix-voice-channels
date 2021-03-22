@@ -5,7 +5,7 @@ import * as sdk from "matrix-js-sdk";
 export default class MatrixIndex {
   createClient() : MatrixClient {
     return sdk.createClient({
-      baseUrl: "http://localhost",
+      baseUrl: "/",
       accessToken: config.token,
       userId: config.username
     })
