@@ -144,7 +144,7 @@ export default defineComponent({
 <style lang="less" scoped>
 .vchannel {
   background-color: #151d25;
-  width: 12rem;
+  width: 40%;
   padding: 1rem;
   border-radius: 10px;
   overflow: auto;
