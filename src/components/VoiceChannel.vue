@@ -2,11 +2,11 @@
   <div class="vchannel">
     <a class="name">{{ name }}</a>
     <div class="inside">
-      <button @click="send">Send Test Msg</button>
-      <a
-      v-for="client in clients"
+      <button @click="send">Send Test Msg</button><br>
+      <a v-for="client in clients"
       :key="client.name"
-      class="client">
+      class="client"
+      >
         {{ client.name }}
       </a>
     </div>
@@ -19,40 +19,31 @@ import { Client } from '../model/client'
 import MatrixIndex from '../matrix'
 
 import * as sdk from "matrix-js-sdk";
-import { useStore } from 'vuex';
+import { useStore } from '../store';
 
 export default defineComponent({
   name: 'VoiceChannel',
-  created() {
-    let client : any = new MatrixIndex().createClient()
-
-    client.on("Room.timeline", function(event: any, room: any, toStartOfTimeline: any) {
-      if (event.getType() !== "m.room.message") {
-        return; // only use messages
+  setup() {
+    const store = useStore()
+    return {
+      send: () => {
+        if (store.state.activeRoomId === undefined) return
+        const content = {
+          "body": "message text",
+          "msgtype": "m.text"
+        }
+        store.state.client.sendEvent(store.state.activeRoomId, "m.room.message", content, "")
       }
-      console.log(event.event.content.body);
-    })
-
-    client.startClient()
-    this.client = client
+    }
   },
   data() {
     return {
       name: 'Test Channel',
-      client: null
+      clients: [{ name: "Test 1" }]
     }
   },
   methods: {
-    send () {
-      const content = {
-        "body": "message text",
-        "msgtype": "m.text"
-      }
-      if (this.client === null) return
-      (this.client as any).sendEvent("!YIqYutrrBUdGDombnI:mtorials.de", "m.room.message", content, "", (err: any, res: any) => {
-        console.log(err);
-      })
-    }
+
   }
 })
 </script>
@@ -63,6 +54,7 @@ export default defineComponent({
   width: 12rem;
   padding: 1rem;
   border-radius: 10px;
+  overflow: auto;
 }
 
 .inside {

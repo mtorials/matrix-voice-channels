@@ -1,10 +1,36 @@
 <template>
   <h1>MXVoice | Proof of Concept</h1>
+  <button @click="showRooms">Refresh</button>
+  <channel-selector/>
   <router-view/>
 </template>
 
-<style lang="less">
+<script lang="ts">
+import { computed, defineComponent, useSSRContext } from 'vue'
+import { Room } from "./matrix/msdk"
+import { useStore } from './store'
+import ChannelSelector from './components/ChannelSelector.vue'
 
+export default defineComponent({
+  components: {
+    ChannelSelector
+  },
+  setup() {
+    const store = useStore()
+    store.state.client.startClient()
+    return {
+      refreshRooms: () => store.dispatch("refreshRooms")
+    }
+  },
+  methods: {
+    showRooms() {
+      this.refreshRooms()
+    }
+  }
+})
+</script>
+
+<style lang="less">
 body {
   padding: 1rem;
   margin: 0;
@@ -16,6 +42,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: white;
+  width: 100%;
+  display: grid;
+  gap: 1rem;
 }
 
 #nav {
