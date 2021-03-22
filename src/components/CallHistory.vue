@@ -6,7 +6,7 @@
       :key="event.getId()"
       class="client"
       >
-        {{ event.getSender() }} :: {{ event.getContent() }}
+        {{ event.getContent().sender }} :: {{ event.getContent() }}
       </a>
     </div>
   </div>
@@ -36,7 +36,6 @@ export default defineComponent({
     const store = useStore()
     store.state.client.on("event", (event: MatrixEvent) => {
       if (event.getType() !== "de.mtorials.test.call" && event.getType() !== "m.room.message") return
-      console.log(event.getContent())
       if (event.getRoomId() !== store.state.activeRoomId) return
       this.callEvents.push(event)
     })
