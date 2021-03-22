@@ -1,24 +1,6 @@
-# mxvoice
+# MXVC - Matrix Voice Channels
 
-## Project setup
-```
-npm install
-```
-
-### Compiles and hot-reloads for development
-```
-npm run serve
-```
-
-### Compiles and minifies for production
-```
-npm run build
-```
-
-### Lints and fixes files
-```
-npm run lint
-```
+Discord like Voice Channels for Matrix
 
 ### Customize configuration
 See [Configuration Reference](https://cli.vuejs.org/config/).

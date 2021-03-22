@@ -12,7 +12,7 @@
       >
         {{ client.name }}
       </a>
-      <video id="local" autoplay playsinline></video>
+      <video id="local" autoplay playsinline muted></video>
       <video id="remote" autoplay playsinline></video>
     </div>
   </div>
