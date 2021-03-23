@@ -3,13 +3,14 @@
     <a class="name">{{ name }} | {{ status }}</a>
     <div class="inside">
       <input type="text" v-model="device">
+      <button @click="fetch">Fetch</button>
       <button @click="join">Join</button>
       <button @click="leave">Leave</button>
       <a v-for="peer in peers"
       :key="peer[0]"
       class="client"
       >
-        <a>{{ peer[1].name }}</a>
+        <a>{{ peer[1].name }} : {{ peer[1].state }}</a>
         <video v-bind:id="peer[0]" autoplay playsinline></video>
       </a>
       <video id="local" autoplay playsinline muted></video>
@@ -29,7 +30,13 @@ import { MatrixEvent, Room } from '@/matrix/msdk';
 interface Peer {
   key: string
   connection: RTCPeerConnection
-  name: string
+  name: string,
+  state: string
+}
+
+interface Candidate {
+  receiver: string
+  candidate: RTCIceCandidate
 }
 
 export default defineComponent({
@@ -76,39 +83,47 @@ export default defineComponent({
   data() {
     return {
       device: "Chrome",
+      rtcStatus: "",
       status: "LEFT",
+      pendingCandidates: [] as Candidate[],
       localStream: new MediaStream
     }
   },
   async created() {
     const store = useStore()
+    this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 
-    this.getJoinedEvents().forEach(event => {
-      if (event.getContent().join_state !== "JOINED") return
+    setInterval(() => {
+      const cand = this.pendingCandidates.pop()
+      if (cand === undefined) return
+      this.sendEvent("icecandidate", JSON.stringify(cand.candidate), this.device, cand.receiver)
+    }, 1000)
 
-
-    })
     store.state.client.on("event", async (event: MatrixEvent) => {
       if (event.getType() !== "de.mtorials.test.callstate") return
       if (event.getRoomId() !== store.state.activeRoomId) return
-      if (event.getContent().join_state === "JOINED")
-      //this.connectTo(event.getStateKey())
-      this.addPeer(event)
+      if (event.getContent().join_state === "JOINED") {
+        this.addPeer(event)
+      } else if (event.getContent().join_state === "LEFT") {
+        this.peers.delete(event.getStateKey())
+      }
     })
     store.state.client.on("event", async (event: MatrixEvent) => {
 
       if (event.getType() !== "de.mtorials.test.call") return
       if (event.getRoomId() !== store.state.activeRoomId) return
-      const content = (event.getContent() as any)
+      const content = event.getContent()
       if (content.sender === this.device) return
+      
+      const peer = this.peers.get(content.sender)
 
       if (content.msgtype === "offer") {
-        const peer = this.peers.get(content.sender)
         if (peer === undefined) {
           console.error("Peer unknown")
           return
         }
         const offer = JSON.parse(content.body)
+        console.log(offer)
         peer.connection.setRemoteDescription(new RTCSessionDescription(offer))
         const answer = await peer.connection.createAnswer()
         //alert("ANSWER?")
@@ -117,16 +132,45 @@ export default defineComponent({
 
         // Now signal ICE Cands
         peer.connection.onicecandidate = event => {
-          event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device, content.sender)
+          event.candidate && this.pendingCandidates.push({ receiver: peer.key, candidate: event.candidate })
+          //event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device, content.sender)
+        }
+
+        const remoteStream = new MediaStream()
+
+        this.localStream.getTracks().forEach(track => {
+          peer.connection.addTrack(track, this.localStream)
+        })
+
+        peer.connection.onsignalingstatechange = (event => {
+          console.log("SIGNALING STATE CHANGE")
+          console.log(event)
+        })
+
+        peer.connection.ontrack = event => {
+          console.log("GETTING TRACK!")
+          event.streams[0].getTracks().forEach(track => {
+            remoteStream.addTrack(track)
+          })
+        }
+
+        (document.getElementById(peer.key) as HTMLVideoElement).srcObject = remoteStream;
+
+        peer.connection.onconnectionstatechange = event => {
+          console.log(peer.connection.connectionState)
+          peer.state = peer.connection.connectionState
+          if (peer.connection.connectionState === "connected") {
+            console.log(peer.connection.getStats())
+            console.log("CONNECTED!!!!")
+          }
         }
 
       } else if (content.msgtype === "icecandidate") {
-        const peer = this.peers.get(content.sender)
         if (peer === undefined) {
           console.error("Peer unknown")
           return
         }
-        const candidate = JSON.parse(content.body)
+        const candidate: RTCIceCandidate = JSON.parse(content.body)
         peer.connection.addIceCandidate(candidate).then(() => {
           console.log("Added ICECAND")
         }).catch((err) => {
@@ -135,20 +179,20 @@ export default defineComponent({
         })
 
       } else if (content.msgtype === "answer") {
-        const peer = this.peers.get(content.sender)
         if (peer === undefined) {
           console.error("Peer unknown")
           return
         }
         const answer = JSON.parse(content.body)
         peer.connection.setRemoteDescription(new RTCSessionDescription(answer))
-        //alert("OK!")
+        console.log("HERE IT SHOULD BE CONNECTED")
       }
     })
   },
   methods: {
     // add does not mean connect!!
     addPeer: async function (event: MatrixEvent) {
+      if (event.getContent().join_state !== "JOINED") return
       const peer : Peer = {
         connection: new RTCPeerConnection({
           iceServers: [
@@ -159,7 +203,8 @@ export default defineComponent({
           iceCandidatePoolSize: 10,
         }),
         key: event.getStateKey(),
-        name: event.getStateKey()
+        name: event.getStateKey(),
+        state: "-"
       }
       this.peers.set(peer.key, peer)
     },
@@ -171,27 +216,32 @@ export default defineComponent({
         peer.connection.addTrack(track, this.localStream)
       })
 
+      peer.connection.onsignalingstatechange = (event => {
+        console.log("SIGNALING STATE CHANGE")
+        console.log(event)
+      })
+
       peer.connection.ontrack = event => {
+        console.log("GETTING TRACK!")
         event.streams[0].getTracks().forEach(track => {
           remoteStream.addTrack(track)
         })
       }
 
-      //(document.getElementById(peer.key) as HTMLVideoElement).srcObject = remoteStream;
+      (document.getElementById(peer.key) as HTMLVideoElement).srcObject = remoteStream;
 
       peer.connection.onconnectionstatechange = event => {
         console.log(peer.connection.connectionState)
+        peer.state = peer.connection.connectionState
         if (peer.connection.connectionState === "connected") {
+          console.log(peer.connection.getStats())
           console.log("CONNECTED!!!!")
         }
       }
 
-      let iceCount = 0
-
       peer.connection.onicecandidate = event => {
-        if (iceCount > 0) return
-        event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device, peer.key)
-        iceCount = 1
+        event.candidate && this.pendingCandidates.push({ receiver: peer.key, candidate: event.candidate })
+        //event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device, peer.key)
       }
 
       const offer = await peer.connection.createOffer()
@@ -201,12 +251,12 @@ export default defineComponent({
     },
     join: async function () {
 
-      this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-
-      this.setState("JOINED", this.device);
+      this.status = 'JOINED'
+      this.setState(this.status, this.device);
 
       (document.getElementById("local") as HTMLVideoElement).srcObject = this.localStream
       this.peers.forEach(peer => {
+        //if (peer.key === this.device)
         this.connectTo(peer)
       })
     },
@@ -216,7 +266,14 @@ export default defineComponent({
       this.peers.forEach(peer => {
         peer.connection.close()
       })
-      this.peers = new Map()
+    },
+    fetch: function () {
+      this.peers.clear()
+      this.getJoinedEvents().forEach(event => {
+        //if (event.getStateKey() === this.device) return
+        if (event.getContent().join_state !== "JOINED") return
+        this.addPeer(event)
+      })
     }
   }
 })
