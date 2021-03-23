@@ -14,6 +14,7 @@
         <video v-bind:id="peer[0]" autoplay playsinline></video>
       </a>
       <video id="local" autoplay playsinline muted></video>
+      <video id="remote" autoplay playsinline muted></video>
     </div>
   </div>
 </template>
@@ -105,6 +106,7 @@ export default defineComponent({
       if (event.getContent().join_state === "JOINED") {
         this.addPeer(event)
       } else if (event.getContent().join_state === "LEFT") {
+        this.peers.get(event.getStateKey())?.connection.close()
         this.peers.delete(event.getStateKey())
       }
     })
@@ -125,10 +127,6 @@ export default defineComponent({
         const offer = JSON.parse(content.body)
         console.log(offer)
         peer.connection.setRemoteDescription(new RTCSessionDescription(offer))
-        const answer = await peer.connection.createAnswer()
-        //alert("ANSWER?")
-        peer.connection.setLocalDescription(answer)
-        this.sendEvent("answer", JSON.stringify(answer), this.device, content.sender)
 
         // Now signal ICE Cands
         peer.connection.onicecandidate = event => {
@@ -142,11 +140,6 @@ export default defineComponent({
           peer.connection.addTrack(track, this.localStream)
         })
 
-        peer.connection.onsignalingstatechange = (event => {
-          console.log("SIGNALING STATE CHANGE")
-          console.log(event)
-        })
-
         peer.connection.ontrack = event => {
           console.log("GETTING TRACK!")
           event.streams[0].getTracks().forEach(track => {
@@ -154,7 +147,8 @@ export default defineComponent({
           })
         }
 
-        (document.getElementById(peer.key) as HTMLVideoElement).srcObject = remoteStream;
+        console.log(content.sender);
+        (document.getElementById(content.sender) as HTMLVideoElement).srcObject = remoteStream;
 
         peer.connection.onconnectionstatechange = event => {
           console.log(peer.connection.connectionState)
@@ -164,6 +158,10 @@ export default defineComponent({
             console.log("CONNECTED!!!!")
           }
         }
+
+        const answer = await peer.connection.createAnswer()
+        peer.connection.setLocalDescription(answer)
+        this.sendEvent("answer", JSON.stringify(answer), this.device, content.sender)
 
       } else if (content.msgtype === "icecandidate") {
         if (peer === undefined) {
@@ -185,7 +183,6 @@ export default defineComponent({
         }
         const answer = JSON.parse(content.body)
         peer.connection.setRemoteDescription(new RTCSessionDescription(answer))
-        console.log("HERE IT SHOULD BE CONNECTED")
       }
     })
   },
@@ -216,18 +213,14 @@ export default defineComponent({
         peer.connection.addTrack(track, this.localStream)
       })
 
-      peer.connection.onsignalingstatechange = (event => {
-        console.log("SIGNALING STATE CHANGE")
-        console.log(event)
-      })
-
       peer.connection.ontrack = event => {
         console.log("GETTING TRACK!")
         event.streams[0].getTracks().forEach(track => {
           remoteStream.addTrack(track)
         })
-      }
+      };
 
+      console.log(peer.key);
       (document.getElementById(peer.key) as HTMLVideoElement).srcObject = remoteStream;
 
       peer.connection.onconnectionstatechange = event => {
@@ -282,7 +275,7 @@ export default defineComponent({
 <style lang="less" scoped>
 .vchannel {
   background-color: #151d25;
-  width: 40%;
+  width: 20rem;
   padding: 1rem;
   border-radius: 10px;
   overflow: auto;
