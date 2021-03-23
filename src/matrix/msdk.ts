@@ -4,11 +4,13 @@ export interface MatrixClient {
   store: MemoryStore
   sendEvent(roomId: string, type: string, content: any, dunno: string, callback: (err: any, res: any) => void): void
   sendEvent(roomId: string, type: string, content: any, dunno: string): void
+  sendStateEvent(roomId: string, type: string, content: any, stateKey: string): void
+  getRoom(roomId: string): Room
 }
 
 export interface MatrixEvent {
   getType(): string
-  getContent(): string
+  getContent(): any
   getSender(): string
   getRoomId(): string
   getId(): string
@@ -22,6 +24,12 @@ export interface MemoryStore {
 export interface Room {
   roomId: string
   name: string
+  currentState: RoomState
+}
+
+export interface RoomState {
+  getStateEvents(eventType: string): MatrixEvent[]
+  getStateEvents(eventType: string, stateKey: string): MatrixEvent
 }
 
 export interface User {

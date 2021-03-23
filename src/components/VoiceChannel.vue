@@ -1,10 +1,10 @@
 <template>
   <div class="vchannel">
-    <a class="name">{{ name }}</a>
+    <a class="name">{{ name }} | {{ status }}</a>
     <div class="inside">
       <input type="text" v-model="device">
       <button @click="audio">Audio</button>
-      <button @click="call">Join</button>
+      <button @click="join">Join</button>
       <button @click="leave">Leave</button>
       <a v-for="client in clients"
       :key="client.name"
@@ -25,7 +25,7 @@ import MatrixIndex from '../matrix'
 
 import * as sdk from "matrix-js-sdk";
 import { useStore } from '../store';
-import { MatrixEvent } from '@/matrix/msdk';
+import { MatrixEvent, Room } from '@/matrix/msdk';
 
 export default defineComponent({
   name: 'VoiceChannel',
@@ -36,20 +36,34 @@ export default defineComponent({
         if (store.getters.getActiveRoom == undefined) return "-"
         return store.getters.getActiveRoom.name
       }),
-      sendEvent: (type: string, body: string, device: string) => {
-        if (store.state.activeRoomId == undefined) return
+      setState: (state: string, device: string) => {
+        if (store.state.activeRoomId === undefined) return
         const content = {
+          "join_state": state
+        }
+        store.state.client.sendStateEvent(store.state.activeRoomId, "de.mtorials.test.callstate", content, device)
+      },
+      sendEvent: (type: string, body: string, sender: string, reciever: string | null) => {
+        if (store.state.activeRoomId == undefined) return
+        let content : any = {
           "msgtype": type,
           "body": body,
-          "sender": device
+          "sender": sender
         }
+        if (reciever) content["receiver"] = reciever
         store.state.client.sendEvent(store.state.activeRoomId, "de.mtorials.test.call", content, "")
+      },
+      getJoinedEvents: () : MatrixEvent[] => {
+        const room: Room = store.getters.getActiveRoom
+        console.log(room.currentState.getStateEvents("de.mtorials.test.callstate"))
+        return room.currentState.getStateEvents("de.mtorials.test.callstate")
       }
     }
   },
   data() {
     return {
       device: "Chrome",
+      status: "LEFT",
       clients: [],
       pc: new RTCPeerConnection({
         iceServers: [
@@ -66,6 +80,11 @@ export default defineComponent({
   created() {
     const store = useStore()
     store.state.client.on("event", async (event: MatrixEvent) => {
+      if (event.getType() !== "de.mtorials.test.callstate") return
+      if (event.getRoomId() !== store.state.activeRoomId) return
+      this.connectTo(event.getContent().sender)
+    })
+    store.state.client.on("event", async (event: MatrixEvent) => {
 
       if (event.getType() !== "de.mtorials.test.call") return
       if (event.getRoomId() !== store.state.activeRoomId) return
@@ -78,11 +97,11 @@ export default defineComponent({
         const answer = await this.pc.createAnswer()
         //alert("ANSWER?")
         this.pc.setLocalDescription(answer)
-        this.sendEvent("answer", JSON.stringify(answer), this.device)
+        this.sendEvent("answer", JSON.stringify(answer), this.device, content.sender)
 
         // Now signal ICE Cands
         this.pc.onicecandidate = event => {
-          event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device)
+          event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device, content.sender)
         }
 
       } else if (content.msgtype === "icecandidate") {
@@ -119,7 +138,7 @@ export default defineComponent({
       (document.getElementById("remote") as HTMLVideoElement).srcObject = remoteStream;
       (document.getElementById("local") as HTMLVideoElement).srcObject = localStream
     },
-    call: async function () {
+    connectTo: async function (receiver: string) {
 
       this.pc.onconnectionstatechange = event => {
         console.log(this.pc.connectionState)
@@ -129,13 +148,24 @@ export default defineComponent({
       }
 
       this.pc.onicecandidate = event => {
-        event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device)
+        event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device, receiver)
       }
 
       const offer = await this.pc.createOffer()
       await this.pc.setLocalDescription(offer)
 
-      this.sendEvent("offer", JSON.stringify(offer), this.device)
+      this.sendEvent("offer", JSON.stringify(offer), this.device, receiver)
+    },
+    join: function () {
+      this.status = 'JOIN'
+      this.setState(this.status, this.device)
+      this.getJoinedEvents().forEach(event => {
+        this.connectTo(event.getContent().sender)
+      })
+    },
+    leave: function () {
+      this.status = 'LEAVE'
+      this.setState(this.status, this.device)
     }
   }
 })
