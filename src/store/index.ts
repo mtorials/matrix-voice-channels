@@ -29,7 +29,7 @@ export const store = createStore<State>({
     refreshRooms(context) {
       const r = context.state.client.store.rooms
       const rooms: Room[] = Object.values(r).map((e: Room) => e)
-      console.log(rooms)
+      //console.log(rooms)
       context.commit("setRooms", rooms)
     }
   },
