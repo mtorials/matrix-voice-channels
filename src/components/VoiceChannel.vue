@@ -10,11 +10,10 @@
       :key="peer[0]"
       class="client"
       >
-        <a>{{ peer[1].name }} : {{ peer[1].state }}</a>
-        <video v-bind:id="peer[0]" autoplay playsinline></video>
+        <a v-if="device === peer[1].name">{{ device }}</a>
+        <a v-else>{{ peer[1].name }} : {{ peer[1].state }}</a>
+        <audio v-bind:id="peer[0]" autoplay playsinline></audio>
       </a>
-      <video id="local" autoplay playsinline muted></video>
-      <video id="remote" autoplay playsinline muted></video>
     </div>
   </div>
 </template>
@@ -92,7 +91,7 @@ export default defineComponent({
   },
   async created() {
     const store = useStore()
-    this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    this.localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
 
     // send ICE cands with interval
     setInterval(() => {
@@ -196,7 +195,7 @@ export default defineComponent({
       };
 
       console.log(peer.key);
-      (document.getElementById(peer.key) as HTMLVideoElement).srcObject = remoteStream;
+      (document.getElementById(peer.key) as HTMLAudioElement).srcObject = remoteStream;
 
       peer.connection.onconnectionstatechange = event => {
         console.log(peer.connection.connectionState)
@@ -216,7 +215,7 @@ export default defineComponent({
       this.status = 'JOINED'
       this.setState(this.status, this.device);
 
-      (document.getElementById("local") as HTMLVideoElement).srcObject = this.localStream
+      //(document.getElementById("local") as HTMLVideoElement).srcObject = this.localStream
       this.peers.forEach(peer => {
         //if (peer.key === this.device)
         this.connectTo(peer)
