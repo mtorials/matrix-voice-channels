@@ -30,8 +30,9 @@ import { MatrixEvent, Room } from '@/matrix/msdk';
 interface Peer {
   key: string
   connection: RTCPeerConnection
-  name: string,
+  name: string
   state: string
+  timestamp: number
 }
 
 interface Candidate {
@@ -53,7 +54,8 @@ export default defineComponent({
       setState: (state: string, device: string) => {
         if (store.state.activeRoomId === undefined) return
         const content = {
-          "join_state": state
+          "join_state": state,
+          "timestamp": new Date().getTime()
         }
         store.state.client.sendStateEvent(store.state.activeRoomId, "de.mtorials.test.callstate", content, device)
       },
@@ -86,7 +88,8 @@ export default defineComponent({
       rtcStatus: "",
       status: "LEFT",
       pendingCandidates: [] as Candidate[],
-      localStream: new MediaStream
+      localStream: new MediaStream,
+      timeout: 20000,
     }
   },
   async created() {
@@ -99,17 +102,21 @@ export default defineComponent({
       if (cand === undefined) return
       if (this.peers.get(cand.receiver)?.connection.connectionState === "connected") return
       this.sendEvent("icecandidate", JSON.stringify(cand.candidate), this.device, cand.receiver)
-    }, 1000)
+    }, 1000);
+
+    // Check for timed out clients
+    setInterval(() => { 
+      this.peers.forEach(peer => {
+        if (peer.timestamp + this.timeout > new Date().getTime()) return
+        this.peers.delete(peer.key)
+        console.log("Peer just timed out at " + new Date().getTime() + " with timestamp " + peer.timestamp)
+      })
+    }, this.timeout);
 
     store.state.client.on("event", async (event: MatrixEvent) => {
       if (event.getType() !== "de.mtorials.test.callstate") return
       if (event.getRoomId() !== store.state.activeRoomId) return
-      if (event.getContent().join_state === "JOINED") {
-        this.addPeer(event)
-      } else if (event.getContent().join_state === "LEFT") {
-        this.peers.get(event.getStateKey())?.connection.close()
-        this.peers.delete(event.getStateKey())
-      }
+      this.handleStateEvent(event)
     })
     store.state.client.on("event", async (event: MatrixEvent) => {
 
@@ -154,23 +161,36 @@ export default defineComponent({
     })
   },
   methods: {
-    // add does not mean connect!!
-    addPeer: async function (event: MatrixEvent) {
-      if (event.getContent().join_state !== "JOINED") return
-      const peer : Peer = {
-        connection: new RTCPeerConnection({
-          iceServers: [
-            {
-              urls: ["stun:stun1.1.google.com:19302", "stun:stun2.1.google.com:19302"]
-            }
-          ],
-          iceCandidatePoolSize: 10,
-        }),
-        key: event.getStateKey(),
-        name: event.getStateKey(),
-        state: "-"
+    handleStateEvent: async function (event: MatrixEvent) {
+      if (event.getContent().join_state === "JOINED") {
+        if (event.getContent().timestamp + this.timeout < new Date().getTime()) {
+          console.log("Peer timed out some time ago!")
+          return
+        }
+        const peer = this.peers.get(event.getStateKey())
+        if (peer !== undefined) {
+          peer.timestamp = event.getContent().timestamp
+          return
+        }
+        const newPeer : Peer = {
+          connection: new RTCPeerConnection({
+            iceServers: [
+              {
+                urls: ["stun:stun1.1.google.com:19302", "stun:stun2.1.google.com:19302"]
+              }
+            ],
+            iceCandidatePoolSize: 10,
+          }),
+          key: event.getStateKey(),
+          name: event.getStateKey(),
+          state: "-",
+          timestamp: event.getContent().timestamp
+        }
+        this.peers.set(newPeer.key, newPeer)
+      } else if (event.getContent().join_state === "LEFT") {
+        this.peers.get(event.getStateKey())?.connection.close()
+        this.peers.delete(event.getStateKey())
       }
-      this.peers.set(peer.key, peer)
     },
     connectTo: async function (peer: Peer) {
 
@@ -214,6 +234,7 @@ export default defineComponent({
 
       this.status = 'JOINED'
       this.setState(this.status, this.device);
+      setInterval(() => { if (this.status === "JOINED") this.setState(this.status, this.device) }, this.timeout - 5000)
 
       //(document.getElementById("local") as HTMLVideoElement).srcObject = this.localStream
       this.peers.forEach(peer => {
@@ -231,9 +252,7 @@ export default defineComponent({
     fetch: function () {
       this.peers.clear()
       this.getJoinedEvents().forEach(event => {
-        //if (event.getStateKey() === this.device) return
-        if (event.getContent().join_state !== "JOINED") return
-        this.addPeer(event)
+        this.handleStateEvent(event)
       })
     }
   }
