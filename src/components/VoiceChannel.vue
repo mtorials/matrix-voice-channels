@@ -26,6 +26,7 @@ import MatrixIndex from '../matrix'
 import * as sdk from "matrix-js-sdk";
 import { useStore } from '../store';
 import { MatrixEvent, Room } from '@/matrix/msdk';
+import { useRoute, useRouter } from 'vue-router';
 
 interface Peer {
   key: string
@@ -44,6 +45,8 @@ export default defineComponent({
   name: 'VoiceChannel',
   setup() {
     const store = useStore()
+    const route = useRoute()
+    const getRoomId = () : string => { return (route.params as any).id }
     const peersRef = reactive(new Map<string, Peer>())
     return {
       peers: peersRef,
@@ -52,31 +55,31 @@ export default defineComponent({
         return store.getters.getActiveRoom.name
       }),
       setState: (state: string, device: string) => {
-        if (store.state.activeRoomId === undefined) return
+        if (getRoomId() === undefined) return
         const content = {
           "join_state": state,
           "timestamp": new Date().getTime()
         }
-        store.state.client.sendStateEvent(store.state.activeRoomId, "de.mtorials.test.callstate", content, device)
+        store.state.client.sendStateEvent(getRoomId(), "de.mtorials.test.callstate", content, device)
       },
       sendEvent: (type: string, body: string, sender: string, reciever: string | null) => {
-        if (store.state.activeRoomId == undefined) return
+        if (getRoomId() == undefined) return
         let content : any = {
           "rtc_type": type,
           "body": body,
           "sender": sender
         }
         if (reciever) content["receiver"] = reciever
-        store.state.client.sendEvent(store.state.activeRoomId, "de.mtorials.test.call", content, "").catch((err) => {
+        store.state.client.sendEvent(getRoomId(), "de.mtorials.test.call", content, "").catch((err) => {
           console.error(err)
         })
       },
       getJoinedEvents: () : MatrixEvent[] => {
-        if (store.state.activeRoomId === undefined) {
+        if (getRoomId() === undefined) {
           console.error("Not active room")
           return []
         }
-        const room: Room = store.state.client.getRoom(store.state.activeRoomId)
+        const room: Room = store.state.client.getRoom(getRoomId())
         //console.log(room.currentState.getStateEvents("de.mtorials.test.callstate"))
         return room.currentState.getStateEvents("de.mtorials.test.callstate")
       }
@@ -94,6 +97,8 @@ export default defineComponent({
   },
   async created() {
     const store = useStore()
+    const route = useRoute()
+    const getRoomId = () : string => { return (route.params as any).id }
     this.localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
 
     // send ICE cands with interval
@@ -115,13 +120,13 @@ export default defineComponent({
 
     store.state.client.on("event", async (event: MatrixEvent) => {
       if (event.getType() !== "de.mtorials.test.callstate") return
-      if (event.getRoomId() !== store.state.activeRoomId) return
+      if (event.getRoomId() !== getRoomId()) return
       this.handleStateEvent(event)
     })
     store.state.client.on("event", async (event: MatrixEvent) => {
 
       if (event.getType() !== "de.mtorials.test.call") return
-      if (event.getRoomId() !== store.state.activeRoomId) return
+      if (event.getRoomId() !== getRoomId()) return
       const content = event.getContent()
       if (content.sender === this.device) return
       if (content.receiver !== this.device) return

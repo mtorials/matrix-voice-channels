@@ -28,6 +28,7 @@ import MatrixIndex from '../matrix'
 import * as sdk from "matrix-js-sdk";
 import { useStore } from '../store';
 import { MatrixEvent } from '@/matrix/msdk';
+import { useRoute, useRouter } from 'vue-router';
 
 interface CallEvent {
   id: string
@@ -56,9 +57,11 @@ export default defineComponent({
   },
   created() {
     const store = useStore()
+    const route = useRoute()
+    const getRoomId = () : string => { return (route.params as any).id }
     store.state.client.on("event", (event: MatrixEvent) => {
       if (event.getType() !== "de.mtorials.test.call") return
-      if (event.getRoomId() !== store.state.activeRoomId) return
+      if (event.getRoomId() !== getRoomId()) return
       let type : string | null = null
       if (event.getContent().rtc_type === "offer") {
         type = "wants to connect to"
@@ -71,7 +74,7 @@ export default defineComponent({
     // State
     store.state.client.on("event", (event: MatrixEvent) => {
       if (event.getType() !== "de.mtorials.test.callstate") return
-      if (event.getRoomId() !== store.state.activeRoomId) return
+      if (event.getRoomId() !== getRoomId()) return
       this.stateEvents.push({ sender: event.getStateKey(), timeout: event.getContent().timestamp, type: event.getContent().join_state, id: event.getId() })
     })
   },
