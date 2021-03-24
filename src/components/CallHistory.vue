@@ -2,6 +2,14 @@
   <div class="vchannel">
     <a class="name">{{ name }}</a>
     <div class="inside">
+      <button @click="showState = !showState">Toggle State</button>
+      <div  v-if="showState"><a
+      v-for="event in stateEvents"
+      :key="event.id"
+      class="client state"
+      >
+        {{ event.sender }} {{ event.type }} {{ event.timeout }}
+      </a></div>
       <a v-for="event in callEvents"
       :key="event.id"
       class="client"
@@ -28,6 +36,13 @@ interface CallEvent {
   type: string
 }
 
+interface JoinStateEvent {
+  timeout: string,
+  sender: string,
+  id: string,
+  type: string
+}
+
 export default defineComponent({
   name: 'CallHistory',
   setup() {
@@ -46,20 +61,26 @@ export default defineComponent({
       if (event.getRoomId() !== store.state.activeRoomId) return
       let type : string | null = null
       if (event.getContent().rtc_type === "offer") {
-        type = "want to connect to"
+        type = "wants to connect to"
       } else if (event.getContent().rtc_type === "answer") {
         type = "accepts connection from"
       }
       if (type) this.callEvents.push({ sender: event.getContent().sender, receiver: event.getContent().receiver, type: type, id: event.getId() })
     })
+
+    // State
+    store.state.client.on("event", (event: MatrixEvent) => {
+      if (event.getType() !== "de.mtorials.test.callstate") return
+      if (event.getRoomId() !== store.state.activeRoomId) return
+      this.stateEvents.push({ sender: event.getStateKey(), timeout: event.getContent().timestamp, type: event.getContent().join_state, id: event.getId() })
+    })
   },
   data() {
     return {
       callEvents: [] as CallEvent[],
+      stateEvents: [] as JoinStateEvent[],
+      showState: false
     }
-  },
-  methods: {
-
   }
 })
 </script>
@@ -89,5 +110,9 @@ export default defineComponent({
 
 .name {
   text-decoration: underline;
+}
+
+.state {
+  background-color: orangered;
 }
 </style>
