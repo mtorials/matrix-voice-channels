@@ -94,9 +94,11 @@ export default defineComponent({
     const store = useStore()
     this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 
+    // send ICE cands with interval
     setInterval(() => {
       const cand = this.pendingCandidates.pop()
       if (cand === undefined) return
+      if (this.peers.get(cand.receiver)?.connection.connectionState === "connected") return
       this.sendEvent("icecandidate", JSON.stringify(cand.candidate), this.device, cand.receiver)
     }, 1000)
 
@@ -116,6 +118,9 @@ export default defineComponent({
       if (event.getRoomId() !== store.state.activeRoomId) return
       const content = event.getContent()
       if (content.sender === this.device) return
+
+      // IMPORTANT
+      if (content.receiver !== this.device) return
       
       const peer = this.peers.get(content.sender)
 
@@ -287,6 +292,11 @@ export default defineComponent({
   flex-direction: column;
   gap: 0.5rem;
   color: black;
+}
+
+video {
+  width: 100%;
+  border-radius: 10px;
 }
 
 .client {
