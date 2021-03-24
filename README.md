@@ -69,7 +69,7 @@ To establish the connection now every device needs to send the ICE candidates. T
 
 ## Timeout
 
-It could lead to problems when users disconnect without setting the `join_state` to `LEFT`. In this case new devies will try to connect to offline devices. One way to work around this problem is to introduce a timestamp in the state event. The user would need to update the state before a given timeout, otherwise other devices would treat the device as being offline:
+It could lead to problems when users disconnect without setting the `join_state` to `LEFT`. In this case new devices will try to connect to offline devices. One way to work around this problem is to introduce a timestamp in the state event. The user would need to update the state before a given timeout, otherwise other devices would treat the device as being offline:
 
 ```json
 {

@@ -1,6 +1,5 @@
 <template>
-  <h1>MXVoice | Proof of Concept</h1>
-  <button @click="showRooms">Refresh</button>
+  <a>matrix-voice-channls</a>
   <channel-selector/>
   <router-view/>
 </template>
@@ -22,10 +21,15 @@ export default defineComponent({
       refreshRooms: () => store.dispatch("refreshRooms")
     }
   },
-  methods: {
-    showRooms() {
-      this.refreshRooms()
-    }
+  created () {
+    useStore().state.client.once('sync', (state, prevState, res) => {
+      if(state === 'PREPARED') {
+        this.refreshRooms()
+      } else {
+        console.log(state);
+        process.exit(1);
+      }
+    });
   }
 })
 </script>

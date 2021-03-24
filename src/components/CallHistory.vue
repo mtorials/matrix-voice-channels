@@ -3,10 +3,10 @@
     <a class="name">{{ name }}</a>
     <div class="inside">
       <a v-for="event in callEvents"
-      :key="event.getId()"
+      :key="event.id"
       class="client"
       >
-        {{ event.getContent().sender }} :: {{ event.getContent() }}
+        {{ event.sender }} {{ event.type }} {{ event.receiver }}
       </a>
     </div>
   </div>
@@ -21,8 +21,15 @@ import * as sdk from "matrix-js-sdk";
 import { useStore } from '../store';
 import { MatrixEvent } from '@/matrix/msdk';
 
+interface CallEvent {
+  id: string
+  sender: string
+  receiver: string
+  type: string
+}
+
 export default defineComponent({
-  name: 'VoiceChannel',
+  name: 'CallHistory',
   setup() {
     const store = useStore()
     return {
@@ -35,14 +42,20 @@ export default defineComponent({
   created() {
     const store = useStore()
     store.state.client.on("event", (event: MatrixEvent) => {
-      if (event.getType() !== "de.mtorials.test.call" && event.getType() !== "m.room.message") return
+      if (event.getType() !== "de.mtorials.test.call") return
       if (event.getRoomId() !== store.state.activeRoomId) return
-      this.callEvents.push(event)
+      let type : string | null = null
+      if (event.getContent().rtc_type === "offer") {
+        type = "want to connect to"
+      } else if (event.getContent().rtc_type === "answer") {
+        type = "accepts connection from"
+      }
+      if (type) this.callEvents.push({ sender: event.getContent().sender, receiver: event.getContent().receiver, type: type, id: event.getId() })
     })
   },
   data() {
     return {
-      callEvents: [] as MatrixEvent[],
+      callEvents: [] as CallEvent[],
     }
   },
   methods: {

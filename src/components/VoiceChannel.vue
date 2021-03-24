@@ -61,7 +61,7 @@ export default defineComponent({
       sendEvent: (type: string, body: string, sender: string, reciever: string | null) => {
         if (store.state.activeRoomId == undefined) return
         let content : any = {
-          "msgtype": type,
+          "rtc_type": type,
           "body": body,
           "sender": sender
         }
@@ -118,61 +118,27 @@ export default defineComponent({
       if (event.getRoomId() !== store.state.activeRoomId) return
       const content = event.getContent()
       if (content.sender === this.device) return
-
-      // IMPORTANT
       if (content.receiver !== this.device) return
       
       const peer = this.peers.get(content.sender)
+      if (peer === undefined) {
+        console.error("Peer unknown")
+        return
+      }
 
-      if (content.msgtype === "offer") {
-        if (peer === undefined) {
-          console.error("Peer unknown")
-          return
-        }
+      if (content.rtc_type === "offer") {
         const offer = JSON.parse(content.body)
         console.log(offer)
         peer.connection.setRemoteDescription(new RTCSessionDescription(offer))
 
-        // Now signal ICE Cands
-        peer.connection.onicecandidate = event => {
-          event.candidate && this.pendingCandidates.push({ receiver: peer.key, candidate: event.candidate })
-          //event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device, content.sender)
-        }
-
-        const remoteStream = new MediaStream()
-
-        this.localStream.getTracks().forEach(track => {
-          peer.connection.addTrack(track, this.localStream)
-        })
-
-        peer.connection.ontrack = event => {
-          console.log("GETTING TRACK!")
-          event.streams[0].getTracks().forEach(track => {
-            remoteStream.addTrack(track)
-          })
-        }
-
-        console.log(content.sender);
-        (document.getElementById(content.sender) as HTMLVideoElement).srcObject = remoteStream;
-
-        peer.connection.onconnectionstatechange = event => {
-          console.log(peer.connection.connectionState)
-          peer.state = peer.connection.connectionState
-          if (peer.connection.connectionState === "connected") {
-            console.log(peer.connection.getStats())
-            console.log("CONNECTED!!!!")
-          }
-        }
+        this.prepareConnect(peer)
 
         const answer = await peer.connection.createAnswer()
         peer.connection.setLocalDescription(answer)
         this.sendEvent("answer", JSON.stringify(answer), this.device, content.sender)
 
-      } else if (content.msgtype === "icecandidate") {
-        if (peer === undefined) {
-          console.error("Peer unknown")
-          return
-        }
+      } else if (content.rtc_type === "icecandidate") {
+
         const candidate: RTCIceCandidate = JSON.parse(content.body)
         peer.connection.addIceCandidate(candidate).then(() => {
           console.log("Added ICECAND")
@@ -181,11 +147,8 @@ export default defineComponent({
           console.log(err)
         })
 
-      } else if (content.msgtype === "answer") {
-        if (peer === undefined) {
-          console.error("Peer unknown")
-          return
-        }
+      } else if (content.rtc_type === "answer") {
+
         const answer = JSON.parse(content.body)
         peer.connection.setRemoteDescription(new RTCSessionDescription(answer))
       }
@@ -212,6 +175,13 @@ export default defineComponent({
     },
     connectTo: async function (peer: Peer) {
 
+      this.prepareConnect(peer)
+
+      const offer = await peer.connection.createOffer()
+      await peer.connection.setLocalDescription(offer)
+      this.sendEvent("offer", JSON.stringify(offer), this.device, peer.key)
+    },
+    prepareConnect: async function (peer: Peer) {
       const remoteStream = new MediaStream()
 
       this.localStream.getTracks().forEach(track => {
@@ -239,13 +209,7 @@ export default defineComponent({
 
       peer.connection.onicecandidate = event => {
         event.candidate && this.pendingCandidates.push({ receiver: peer.key, candidate: event.candidate })
-        //event.candidate && this.sendEvent("icecandidate", JSON.stringify(event.candidate), this.device, peer.key)
       }
-
-      const offer = await peer.connection.createOffer()
-      await peer.connection.setLocalDescription(offer)
-
-      this.sendEvent("offer", JSON.stringify(offer), this.device, peer.key)
     },
     join: async function () {
 

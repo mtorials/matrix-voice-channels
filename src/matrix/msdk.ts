@@ -6,6 +6,7 @@ export interface MatrixClient {
   sendEvent(roomId: string, type: string, content: any, dunno: string): Promise<void>
   sendStateEvent(roomId: string, type: string, content: any, stateKey: string): void
   getRoom(roomId: string): Room
+  once(on: string, callback: (state: any, prevState: any, res: any) => void): void
 }
 
 export interface MatrixEvent {
