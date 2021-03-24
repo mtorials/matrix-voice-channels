@@ -6,6 +6,7 @@
       <button @click="fetch">Fetch</button>
       <button @click="join">Join</button>
       <button @click="leave">Leave</button>
+      <a>muted: {{ muted }}<button @click="toggleMute">Toggle Mute</button></a>
       <a v-for="peer in peers"
       :key="peer[0]"
       class="client"
@@ -93,6 +94,7 @@ export default defineComponent({
       pendingCandidates: [] as Candidate[],
       localStream: new MediaStream,
       timeout: 20000,
+      muted: false
     }
   },
   async created() {
@@ -100,7 +102,6 @@ export default defineComponent({
     const route = useRoute()
     const getRoomId = () : string => { return (route.params as any).id }
     this.localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-    this.localStream.getAudioTracks()[0].getSettings().noiseSuppression = true
 
     // send ICE cands with interval
     setInterval(() => {
@@ -260,6 +261,10 @@ export default defineComponent({
       this.getJoinedEvents().forEach(event => {
         this.handleStateEvent(event)
       })
+    },
+    toggleMute: function () {
+      this.muted = !this.muted
+      this.localStream.getAudioTracks()[0].enabled = !this.muted
     }
   }
 })
