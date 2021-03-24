@@ -100,6 +100,7 @@ export default defineComponent({
     const route = useRoute()
     const getRoomId = () : string => { return (route.params as any).id }
     this.localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+    this.localStream.getAudioTracks()[0].getSettings().noiseSuppression = true
 
     // send ICE cands with interval
     setInterval(() => {
