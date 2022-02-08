@@ -1,6 +1,6 @@
 # MXVC - Matrix Voice Channels
 
-Discord like Voice Channels for Matrix.
+Proof of Concept for Discord like Voice Channels for Matrix.
 
 ## State
 
